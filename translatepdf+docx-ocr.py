@@ -7,6 +7,7 @@ import nltk
 import pytesseract
 from deep_translator import GoogleTranslator
 from textblob import TextBlob
+import time
 
 nltk_data_dir = "/storage/internal/nltk_data"
 # Tentukan lokasi folder resource NLTK
@@ -16,16 +17,16 @@ nltk.download('punkt_tab', download_dir=nltk_data_dir)
 from deep_translator import GoogleTranslator
 from textblob import TextBlob
 
-def safe_translate(text, source_lang, target_lang):
+def safe_translate(text, source_lang, target_lang, delay=1):
     try:
         return GoogleTranslator(source=source_lang, target=target_lang).translate(text)
     except Exception as e:
-        print(f"[GoogleTranslator error] {e} — Falling back to TextBlob...")
+        print(f"[GoogleTranslator error] {e} — falling back to TextBlob")
         try:
             blob = TextBlob(text)
-            return str(blob.translate(from_lang=source_lang if source_lang != 'auto' else 'en', to=target_lang))
+            return str(blob.translate(from_lang=source_lang if source_lang != "auto" else "en", to=target_lang))
         except Exception as e2:
-            print(f"[TextBlob error] {e2} — Returning original text.")
+            print(f"[TextBlob error] {e2} — keeping original text.")
             return text
 
 def valid_xml_char_ordinal(c):
@@ -82,19 +83,18 @@ def pdf_to_docx(pdf_path, output_name="output.docx", source_lang="auto", target_
 
             # Process and batch translate
             cleaned_sentences = [clean_text(s).strip() for s in sentences if clean_text(s).strip()]
-            batch_size = 10
-            for i in range(0, len(cleaned_sentences), batch_size):
-                batch = cleaned_sentences[i:i+batch_size]
-                try:
-                    translations = GoogleTranslator(source=source_lang, target=target_lang).batch_translate(batch)
-                except Exception as e:
-                    print(f"[Batch translation error] {e}")
-                    # Fallback to translating one by one
-                    translations = [safe_translate(sentence, source_lang, target_lang) for sentence in batch]
 
-                for translated in translations:
+                
+            for sentence in cleaned_sentences:
+                try:
+                    translated = safe_translate(sentence, source_lang, target_lang)
                     para = doc.add_paragraph(translated)
                     para.style = style
+                except Exception as e:
+                    print(f"[General translation error] {e}")
+                    doc.add_paragraph(sentence)
+    
+                time.sleep(0.5) 
 
 
     doc.save(output_name)
